@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+
+    <!-- Gentle green/yellow gradient -->
+    <gradient
+        android:startColor="#F5FFF6"
+        android:centerColor="#FFFDDC"
+        android:endColor="#FFFFFF"
+        android:angle="270" />
+
+    <!-- Mint dashed outline -->
+    <stroke
+        android:color="#7BE495"
+        android:width="2dp"
+        android:dashWidth="8dp"
+        android:dashGap="6dp" />
+
+    <!-- Rounded corners -->
+    <corners android:radius="20dp" />
+</shape>
