@@ -10,6 +10,17 @@
     tools:ignore="ExtraText">
 
     <!-- Green header -->
+    <com.google.android.material.bottomnavigation.BottomNavigationView
+        android:id="@+id/bottom_navigation"
+        style="@style/Widget.MaterialComponents.BottomNavigationView.Colored"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/white"
+        app:itemIconTint="#4B4B4B"
+        app:itemTextColor="#4B4B4B"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:menu="@menu/bottom_nav_menu" />
+
     <androidx.cardview.widget.CardView
         android:id="@+id/headerCard"
         android:layout_width="match_parent"
@@ -23,6 +34,7 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="match_parent"
+            android:background="#0A430A"
             android:gravity="center"
             android:orientation="vertical"
             android:paddingTop="8dp">
@@ -61,7 +73,7 @@
         app:layout_constraintHorizontal_bias="0.497"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/headerCard"
-        app:tint="#91D9B1" />
+        app:tint="#0A430A" />
 
     <TextView
         android:id="@+id/scanTitle"
@@ -92,14 +104,14 @@
         android:text="Take Photo"
         android:textAllCaps="false"
         android:textColor="@android:color/white"
+        app:backgroundTint="#0A430A"
         app:icon="@drawable/ic_camera_green"
-        app:iconTint="@android:color/white"
+        app:iconGravity="textStart"
         app:iconPadding="8dp"
         app:iconSize="20dp"
-        app:iconGravity="textStart"
-        app:backgroundTint="#1B8E36"
-        app:layout_constraintStart_toStartOf="parent"
+        app:iconTint="@android:color/white"
         app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/imagePlaceholder" />
 
     <!-- "Upload from Gallery" button -->
@@ -110,18 +122,18 @@
         android:layout_marginTop="8dp"
         android:text="Upload from Gallery"
         android:textAllCaps="false"
-        android:textColor="#1B8E36"
+        android:textColor="#0A430A"
+        app:backgroundTint="@android:color/white"
         app:icon="@drawable/ic_add_photo"
-        app:iconTint="#156D29"
+        app:iconGravity="textStart"
         app:iconPadding="8dp"
         app:iconSize="20dp"
-        app:iconGravity="textStart"
-        app:strokeColor="#1B8E36"
-        app:strokeWidth="1dp"
-        app:backgroundTint="@android:color/white"
-        app:layout_constraintStart_toStartOf="parent"
+        app:iconTint="#0A430A"
         app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/btnTakePhoto"
+        app:strokeColor="#0A430A"
+        app:strokeWidth="1dp"
         tools:ignore="MissingConstraints" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
