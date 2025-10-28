@@ -24,46 +24,47 @@ class MainActivity : AppCompatActivity() {
     private lateinit var permissionLauncher: ActivityResultLauncher<String>
     private var photoUri: Uri? = null
 
+    private lateinit var imageView: ImageView
+    private lateinit var btnTakePhoto: MaterialButton
+    private lateinit var btnUpload: MaterialButton
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        val imageView = findViewById<ImageView>(R.id.imagePlaceholder)
-        val btnTakePhoto = findViewById<MaterialButton>(R.id.btnTakePhoto)
-        val btnUpload = findViewById<MaterialButton>(R.id.btnUpload)
+        imageView = findViewById(R.id.imagePlaceholder)
+        btnTakePhoto = findViewById(R.id.btnTakePhoto)
+        btnUpload = findViewById(R.id.btnUpload)
 
-        // Request camera permission when needed
+        // Load default icon initially
+        resetUI()
+
         permissionLauncher = registerForActivityResult(
             ActivityResultContracts.RequestPermission()
         ) { granted ->
             if (granted) openCamera()
         }
 
-        // Handle camera capture result
         cameraLauncher = registerForActivityResult(
             ActivityResultContracts.StartActivityForResult()
         ) { result ->
             if (result.resultCode == Activity.RESULT_OK && photoUri != null) {
                 val uri = photoUri!!
-                imageView.setImageURI(uri)
                 goToLoadingScreen(uri)
             }
         }
 
-        // Handle image selection result
         galleryLauncher = registerForActivityResult(
             ActivityResultContracts.StartActivityForResult()
         ) { result ->
             if (result.resultCode == Activity.RESULT_OK) {
                 val selectedUri: Uri? = result.data?.data
                 selectedUri?.let { uri ->
-                    imageView.setImageURI(uri)
                     goToLoadingScreen(uri)
                 }
             }
         }
 
-        // “Take Photo” button
         btnTakePhoto.setOnClickListener {
             when {
                 ContextCompat.checkSelfPermission(
@@ -74,10 +75,20 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // “Upload from Gallery” button
         btnUpload.setOnClickListener {
             openGallery()
         }
+    }
+
+    /** Refresh the UI whenever the user comes back from another activity **/
+    override fun onResume() {
+        super.onResume()
+        resetUI() // <--- Reinitialize icons and layout
+    }
+
+    /** Reset UI and keep only the camera icon placeholder **/
+    private fun resetUI() {
+        imageView.setImageResource(R.drawable.ic_camera_green)
     }
 
     /** Opens device camera safely **/
@@ -95,15 +106,6 @@ class MainActivity : AppCompatActivity() {
                 addFlags(
                     Intent.FLAG_GRANT_READ_URI_PERMISSION or
                             Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-                )
-            }
-
-            // Grant URI permission explicitly to the camera
-            photoUri?.let { uri ->
-                grantUriPermission(
-                    "com.android.camera",
-                    uri,
-                    Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_READ_URI_PERMISSION
                 )
             }
 
@@ -127,7 +129,6 @@ class MainActivity : AppCompatActivity() {
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
 
-        // ✅ Grant permission explicitly so ActivityScanLoading can read it
         grantUriPermission(
             packageName,
             imageUri,
