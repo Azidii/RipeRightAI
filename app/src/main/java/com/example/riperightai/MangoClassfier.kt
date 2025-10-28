@@ -11,7 +11,7 @@ object MangoClassifier {
 
     @Volatile
     private var module: Module? = null
-    private const val MODEL_NAME = "my_model.torchscript"
+    private const val MODEL_NAME = "best_float32.tflite"
     private const val TAG = "RipeRightModel"
 
     /** Returns the loaded PyTorch module, loading once if necessary */
