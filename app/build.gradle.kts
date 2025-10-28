@@ -47,4 +47,12 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+    // PyTorch Android libraries
+    implementation("org.pytorch:pytorch_android:1.13.1")
+    implementation("org.pytorch:pytorch_android_torchvision:1.13.1")
+
+
+    // keep other existing imports, e.g.:
+    implementation("com.google.android.material:material:1.10.0")
+    implementation("androidx.appcompat:appcompat:1.7.0")
 }
