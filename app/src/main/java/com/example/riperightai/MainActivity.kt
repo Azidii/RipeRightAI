@@ -13,6 +13,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.bottomnavigation.BottomNavigationView
 import android.widget.ImageView
 import java.io.File
 import java.io.IOException
@@ -32,19 +33,23 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        // --- UI component setup ---
         imageView = findViewById(R.id.imagePlaceholder)
         btnTakePhoto = findViewById(R.id.btnTakePhoto)
         btnUpload = findViewById(R.id.btnUpload)
+        val bottomNav = findViewById<BottomNavigationView>(R.id.bottom_navigation)
 
         // Load default icon initially
         resetUI()
 
+        // --- Permission handling ---
         permissionLauncher = registerForActivityResult(
             ActivityResultContracts.RequestPermission()
         ) { granted ->
             if (granted) openCamera()
         }
 
+        // --- Camera launcher ---
         cameraLauncher = registerForActivityResult(
             ActivityResultContracts.StartActivityForResult()
         ) { result ->
@@ -54,6 +59,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        // --- Gallery launcher ---
         galleryLauncher = registerForActivityResult(
             ActivityResultContracts.StartActivityForResult()
         ) { result ->
@@ -65,6 +71,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        // --- Button listeners ---
         btnTakePhoto.setOnClickListener {
             when {
                 ContextCompat.checkSelfPermission(
@@ -78,20 +85,41 @@ class MainActivity : AppCompatActivity() {
         btnUpload.setOnClickListener {
             openGallery()
         }
+
+        // --- Bottom navigation listener ---
+        bottomNav.setOnItemSelectedListener { item ->
+            when (item.itemId) {
+                R.id.navigation_scan -> {
+                    // Stay in MainActivity (scanner)
+                    true
+                }
+                R.id.navigation_history -> {
+                    // Go to HistoryActivity
+                    val intent = Intent(this, HistoryActivity::class.java)
+                    startActivity(intent)
+                    overridePendingTransition(android.R.anim.slide_in_left, android.R.anim.slide_out_right)
+                    true
+                }
+                else -> false
+            }
+        }
+
+        // Select scan tab as default
+        bottomNav.selectedItemId = R.id.navigation_scan
     }
 
     /** Refresh the UI whenever the user comes back from another activity **/
     override fun onResume() {
         super.onResume()
-        resetUI() // <--- Reinitialize icons and layout
+        resetUI() // Reinitialize icons and layout
     }
 
-    /** Reset UI and keep only the camera icon placeholder **/
+    /** Reset UI – show only camera icon placeholder **/
     private fun resetUI() {
         imageView.setImageResource(R.drawable.ic_camera_green)
     }
 
-    /** Opens device camera safely **/
+    /** Open device camera safely **/
     private fun openCamera() {
         try {
             val imageFile = File.createTempFile("mango_photo_", ".jpg", cacheDir)
@@ -115,14 +143,14 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /** Opens gallery picker **/
+    /** Open gallery picker **/
     private fun openGallery() {
         val intent = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
         intent.type = "image/*"
         galleryLauncher.launch(intent)
     }
 
-    /** Navigates to ActivityScanLoading, passing image Uri safely **/
+    /** Navigate to ActivityScanLoading, passing image Uri safely **/
     private fun goToLoadingScreen(imageUri: Uri) {
         val intent = Intent(this, ActivityScanLoading::class.java).apply {
             putExtra("image_uri", imageUri.toString())
