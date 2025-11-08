@@ -8,7 +8,6 @@ import android.util.Log
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
-import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.*
 import org.tensorflow.lite.Interpreter
 import java.io.*
@@ -33,18 +32,17 @@ class ActivityScanLoading : AppCompatActivity() {
             Toast.makeText(this, "No image provided.", Toast.LENGTH_SHORT).show()
             finish(); return
         }
+
         val imageUri = Uri.parse(uriString)
 
         inferenceJob = lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val safeUri = copyImageToCache(imageUri)
+
                 tflite?.close()
-                tflite = Interpreter(loadModelFile("final_float32.tflite"))
+                tflite = Interpreter(loadModelFile("best_float32_nms.tflite"))
 
                 val result = detectMango(safeUri)
-
-                // 🔥 Firestore integration – save scan record
-                saveToFirestore(result)
 
                 withContext(Dispatchers.Main) {
                     if (!isFinishing && !isDestroyed && !isTransitioning) {
@@ -62,7 +60,6 @@ class ActivityScanLoading : AppCompatActivity() {
                         }, 400)
                     }
                 }
-
             } catch (ex: Exception) {
                 Log.e(tag, "Inference failed", ex)
                 withContext(Dispatchers.Main) {
@@ -120,9 +117,10 @@ class ActivityScanLoading : AppCompatActivity() {
 
         val inputSize = 640
         val resized = android.graphics.Bitmap.createScaledBitmap(bitmap, inputSize, inputSize, true)
+
+        // image pre-processing (do not touch)
         val inputBuffer = ByteBuffer.allocateDirect(1 * inputSize * inputSize * 3 * 4)
         inputBuffer.order(ByteOrder.nativeOrder())
-
         for (y in 0 until inputSize) {
             for (x in 0 until inputSize) {
                 val pixel = resized.getPixel(x, y)
@@ -153,7 +151,7 @@ class ActivityScanLoading : AppCompatActivity() {
         var bestConf = bestDet[4]
         var clsIdx = bestDet[5].toInt()
 
-        // merge overlapping detections
+        // ✅ Added block — allow merging parent + subset detections if overlapping
         val sorted = detections.sortedByDescending { it[4] }
         val overlapping = sorted.drop(1).find { iou(it, bestDet) > 0.5f }
         if (overlapping != null) {
@@ -161,7 +159,6 @@ class ActivityScanLoading : AppCompatActivity() {
             val overlapLabel = labels.getOrElse(overlapping[5].toInt()) { "Unknown" }
             val base1 = mainLabel.substringBefore("_")
             val base2 = overlapLabel.substringBefore("_")
-
             if (base1.equals(base2, ignoreCase = true)) {
                 val parent = if (!mainLabel.contains("_")) mainLabel else overlapLabel
                 val child = if (mainLabel.contains("_")) mainLabel else overlapLabel
@@ -171,9 +168,11 @@ class ActivityScanLoading : AppCompatActivity() {
                 Log.d(tag, "✓ Merged detection: $parent + $child")
             }
         }
+        // ✅ End of added logic
 
         val confidencePct = "%.1f".format(bestConf * 100f)
         val rawLabel = labels.getOrElse(clsIdx) { "Unknown" }
+
         var variety = rawLabel
         var ripeness = "Unknown"
 
@@ -196,34 +195,7 @@ class ActivityScanLoading : AppCompatActivity() {
         }
 
         Log.d(tag, "✓ Detected → variety=$variety  ripeness=$ripeness  conf=$confidencePct%")
-        resized.recycle()
-        bitmap.recycle()
-
         return MangoResult(variety, ripeness, confidencePct, imageUri.toString())
-    }
-
-    /** Save each scan result to Firestore **/
-    private fun saveToFirestore(result: MangoResult) {
-        try {
-            val firestore = FirebaseFirestore.getInstance()
-            val timestamp = System.currentTimeMillis()
-            val data = hashMapOf(
-                "variety" to result.variety,
-                "ripeness" to result.ripeness,
-                "confidence" to result.confidence,
-                "imageUri" to result.imageUri,
-                "timestamp" to timestamp
-            )
-            firestore.collection("scan_history").add(data)
-                .addOnSuccessListener {
-                    Log.d(tag, "✅ Scan saved to Firestore.")
-                }
-                .addOnFailureListener {
-                    Log.e(tag, "❌ Firestore save failed: ${it.message}")
-                }
-        } catch (e: Exception) {
-            Log.e(tag, "Firestore integration error: ${e.message}")
-        }
     }
 
     /** IoU helper **/
