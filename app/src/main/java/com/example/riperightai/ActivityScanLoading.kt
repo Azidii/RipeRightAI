@@ -118,6 +118,7 @@ class ActivityScanLoading : AppCompatActivity() {
         val inputSize = 640
         val resized = android.graphics.Bitmap.createScaledBitmap(bitmap, inputSize, inputSize, true)
 
+        // image pre-processing (do not touch)
         val inputBuffer = ByteBuffer.allocateDirect(1 * inputSize * inputSize * 3 * 4)
         inputBuffer.order(ByteOrder.nativeOrder())
         for (y in 0 until inputSize) {
@@ -134,7 +135,6 @@ class ActivityScanLoading : AppCompatActivity() {
         inputBuffer.rewind()
 
         val interpreter = tflite ?: throw Exception("Interpreter not initialized")
-
         val output = Array(1) { Array(300) { FloatArray(6) } }
         interpreter.run(inputBuffer, output)
 
@@ -147,29 +147,32 @@ class ActivityScanLoading : AppCompatActivity() {
         )
 
         val detections = output[0].filter { it[4] >= 0.25f }
-
-        // --- Pick top candidate but handle ambiguous trio if low confidence ---
         var bestDet = detections.maxByOrNull { it[4] } ?: throw Exception("No mango detected")
         var bestConf = bestDet[4]
         var clsIdx = bestDet[5].toInt()
 
-        // tie‑breaker for AppleMango/Indian/Kabayo
-        if (clsIdx in listOf(0, 10, 11) && bestConf < 0.45f) {
-            val near = detections.filter {
-                it !== bestDet && iou(it, bestDet) > 0.5f
-            }
-            val alt = near.maxByOrNull { it[4] * if (it[5].toInt() == 10) 1.05f else 1f }
-            if (alt != null && alt[4] - bestConf > 0.05f) {
-                bestDet = alt
-                bestConf = alt[4]
-                clsIdx = alt[5].toInt()
+        // ✅ Added block — allow merging parent + subset detections if overlapping
+        val sorted = detections.sortedByDescending { it[4] }
+        val overlapping = sorted.drop(1).find { iou(it, bestDet) > 0.5f }
+        if (overlapping != null) {
+            val mainLabel = labels.getOrElse(clsIdx) { "Unknown" }
+            val overlapLabel = labels.getOrElse(overlapping[5].toInt()) { "Unknown" }
+            val base1 = mainLabel.substringBefore("_")
+            val base2 = overlapLabel.substringBefore("_")
+            if (base1.equals(base2, ignoreCase = true)) {
+                val parent = if (!mainLabel.contains("_")) mainLabel else overlapLabel
+                val child = if (mainLabel.contains("_")) mainLabel else overlapLabel
+                bestDet = if (child == overlapLabel) overlapping else bestDet
+                bestConf = max(bestDet[4], overlapping[4])
+                clsIdx = labels.indexOf(child)
+                Log.d(tag, "✓ Merged detection: $parent + $child")
             }
         }
+        // ✅ End of added logic
 
         val confidencePct = "%.1f".format(bestConf * 100f)
         val rawLabel = labels.getOrElse(clsIdx) { "Unknown" }
 
-        // --- Derive variety / ripeness ---
         var variety = rawLabel
         var ripeness = "Unknown"
 
@@ -195,7 +198,7 @@ class ActivityScanLoading : AppCompatActivity() {
         return MangoResult(variety, ripeness, confidencePct, imageUri.toString())
     }
 
-    /** IoU helper for tie‑breaker **/
+    /** IoU helper **/
     private fun iou(a: FloatArray, b: FloatArray): Float {
         val x1 = max(a[0], b[0])
         val y1 = max(a[1], b[1])
