@@ -171,8 +171,8 @@ class ActivityScanResult : AppCompatActivity() {
                     (firmness == 1 && aroma == 0) || (firmness == 0 && aroma == 1) ->
                         Triple("Slightly Ripe", R.color.yellow, 45)
 
-                    // Ripe (soft + noticeable aroma)
-                    firmness == 2 && aroma == 2 ->
+                    // Ripe (soft + strong aroma)
+                    firmness == 3 && aroma == 3 ->
                         Triple("Ripe", R.color.teal_700, 100)
 
                     // Everything in between

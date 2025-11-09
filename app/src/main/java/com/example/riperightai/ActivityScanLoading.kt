@@ -40,7 +40,7 @@ class ActivityScanLoading : AppCompatActivity() {
                 val safeUri = copyImageToCache(imageUri)
 
                 tflite?.close()
-                tflite = Interpreter(loadModelFile("best_float32_nms.tflite"))
+                tflite = Interpreter(loadModelFile("final_float32.tflite"))
 
                 val result = detectMango(safeUri)
 
