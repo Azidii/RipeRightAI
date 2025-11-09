@@ -4,21 +4,17 @@ import android.app.Activity
 import android.app.AlertDialog
 import android.net.Uri
 import android.os.Bundle
-import android.provider.Settings
 import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.google.android.material.appbar.MaterialToolbar
-import com.google.firebase.firestore.FirebaseFirestore
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.random.Random
 
 class ActivityScanResult : AppCompatActivity() {
-
-    private val firestore = FirebaseFirestore.getInstance()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -125,29 +121,10 @@ class ActivityScanResult : AppCompatActivity() {
                 ripenessPercentage.visibility = View.GONE
             }
         }
-
-        // --- Save scan history to Firestore ---
-        val deviceId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
-        val data = hashMapOf(
-            "deviceId" to deviceId,
-            "variety" to variety,
-            "ripeness" to ripeness,
-            "confidence" to "$confidenceVal%",
-            "imageUri" to imageUri,
-            "timestamp" to System.currentTimeMillis()
-        )
-
-        firestore.collection("scan_history")
-            .add(data)
-            .addOnSuccessListener {
-                Toast.makeText(this, "Scan history saved!", Toast.LENGTH_SHORT).show()
-            }
-            .addOnFailureListener { e ->
-                Toast.makeText(this, "Failed to save scan: ${e.message}", Toast.LENGTH_SHORT).show()
-            }
     }
 
     // --- Manual Assessment Dialog ---
+    // --- Manual Assessment Dialog (Realistic Firmness + Aroma) ---
     private fun showRipenessDialog(
         variety: String,
         stateView: TextView,
@@ -160,6 +137,7 @@ class ActivityScanResult : AppCompatActivity() {
         val spinnerFirmness = dialogView.findViewById<Spinner>(R.id.spinnerFirmness)
         val spinnerAroma = dialogView.findViewById<Spinner>(R.id.spinnerAroma)
 
+        // Observable characteristics
         val firmnessOptions = arrayOf(
             "Very hard",
             "Firm (slightly yielding)",
@@ -183,24 +161,40 @@ class ActivityScanResult : AppCompatActivity() {
                 val firmness = spinnerFirmness.selectedItemPosition
                 val aroma = spinnerAroma.selectedItemPosition
 
+                // Determine ripeness stage
                 val result = when {
-                    firmness == 0 && aroma == 0 -> Triple("Unripe", R.color.design_default_color_error, 25)
-                    (firmness == 1 && aroma == 0) || (firmness == 0 && aroma == 1) -> Triple("Slightly Ripe", R.color.yellow, 45)
-                    firmness == 2 && aroma == 2 -> Triple("Ripe", R.color.teal_700, 100)
-                    else -> Triple("Almost Ripe", R.color.orange, 70)
+                    // Unripe (very hard + no aroma)
+                    firmness == 0 && aroma == 0 ->
+                        Triple("Unripe", R.color.design_default_color_error, 25)
+
+                    // Slightly Ripe (one factor starts changing)
+                    (firmness == 1 && aroma == 0) || (firmness == 0 && aroma == 1) ->
+                        Triple("Slightly Ripe", R.color.yellow, 45)
+
+                    // Ripe (soft + noticeable aroma)
+                    firmness == 2 && aroma == 2 ->
+                        Triple("Ripe", R.color.teal_700, 100)
+
+                    // Everything in between
+                    else ->
+                        Triple("Almost Ripe", R.color.orange, 70)
                 }
+
 
                 setRipeness(stateView, bar, percentView, result.first, result.second, result.third)
                 bar.visibility = View.VISIBLE
                 percentView.visibility = View.VISIBLE
                 setEstimation(estimationText, result.first)
 
+                // After first submit → allow re‑assessment
                 assessButton.text = "Assess again?"
             }
             .setNegativeButton("Cancel", null)
             .show()
     }
 
+    // --- Estimation Logic ---
+    // --- Accurate Estimation Logic ---
     private fun setEstimation(estimationText: TextView, ripenessStage: String) {
         when (ripenessStage.lowercase()) {
             "unripe" -> {
@@ -223,6 +217,7 @@ class ActivityScanResult : AppCompatActivity() {
         }
     }
 
+    // --- Helper: set ripeness visuals ---
     private fun setRipeness(
         stateView: TextView,
         bar: ProgressBar,
@@ -238,6 +233,7 @@ class ActivityScanResult : AppCompatActivity() {
         percentView.text = "$clamped%"
     }
 
+    // --- Helper: clear UI when ripeness unknown ---
     private fun clearRipeness(stateView: TextView, bar: ProgressBar, percentView: TextView) {
         stateView.text = "Unknown ripeness"
         stateView.setTextColor(ContextCompat.getColor(this, R.color.black))
