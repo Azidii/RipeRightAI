@@ -52,7 +52,7 @@
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:gravity="center"
-        android:visibility="visible"
+        android:visibility="gone"
         app:layout_constraintTop_toBottomOf="@id/headerCard"
         app:layout_constraintBottom_toTopOf="@id/bottom_navigation"
         app:layout_constraintStart_toStartOf="parent"
@@ -62,7 +62,8 @@
             android:layout_width="80dp"
             android:layout_height="80dp"
             android:contentDescription="No Scans Yet"
-            app:tint="#A0A0A0" />
+            app:tint="#A0A0A0"
+            android:src="@drawable/ic_history" />
 
         <TextView
             android:layout_width="wrap_content"
@@ -71,7 +72,7 @@
             android:textSize="18sp"
             android:textStyle="bold"
             android:textColor="#A0A0A0"
-            android:layout_marginTop="16dp"/>
+            android:layout_marginTop="16dp" />
 
         <TextView
             android:layout_width="wrap_content"
@@ -81,19 +82,28 @@
             android:textSize="14sp" />
     </LinearLayout>
 
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/historyRecyclerView"
+    <!-- Scrollable History Container -->
+    <ScrollView
+        android:id="@+id/historyScroll"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:visibility="gone"
+        android:padding="8dp"
+        android:clipToPadding="false"
+        android:contentDescription="Scan history list"
         app:layout_constraintTop_toBottomOf="@id/headerCard"
         app:layout_constraintBottom_toTopOf="@id/bottom_navigation"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        tools:listitem="@layout/history_list_item"
-        android:padding="8dp"
-        android:clipToPadding="false"/>
+        app:layout_constraintEnd_toEndOf="parent">
 
+        <LinearLayout
+            android:id="@+id/historyContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="8dp" />
+    </ScrollView>
+
+    <!-- Bottom Navigation -->
     <com.google.android.material.bottomnavigation.BottomNavigationView
         android:id="@+id/bottom_navigation"
         style="@style/Widget.MaterialComponents.BottomNavigationView.Colored"
