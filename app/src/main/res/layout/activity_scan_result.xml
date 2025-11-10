@@ -220,6 +220,20 @@
                     app:layout_constraintStart_toStartOf="@id/ripenessTitle"
                     app:layout_constraintTop_toBottomOf="@id/ripenessTitle" />
 
+                <!-- 🔹 New conditional message -->
+                <TextView
+                    android:id="@+id/selfAssessmentNote"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="Variety needs self-assessment to determine ripeness."
+                    android:textColor="#757575"
+                    android:textSize="13sp"
+                    android:visibility="gone"
+                    app:layout_constraintStart_toStartOf="@id/ripenessTitle"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/ripenessState" />
+
                 <TextView
                     android:id="@+id/ripenessProgressText"
                     android:layout_width="wrap_content"
@@ -227,7 +241,7 @@
                     android:layout_marginTop="16dp"
                     android:text="Ripeness Progress"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/ripenessIcon" />
+                    app:layout_constraintTop_toBottomOf="@id/selfAssessmentNote" />
 
                 <TextView
                     android:id="@+id/ripenessPercentage"
@@ -292,7 +306,6 @@
                     </androidx.constraintlayout.widget.ConstraintLayout>
                 </com.google.android.material.card.MaterialCardView>
 
-                <!-- 🔹 Added Button: Manual Ripeness Check -->
                 <Button
                     android:id="@+id/btnAssessRipeness"
                     android:layout_width="0dp"

@@ -4,23 +4,32 @@ import android.app.Activity
 import android.app.AlertDialog
 import android.net.Uri
 import android.os.Bundle
+import android.provider.Settings
+import android.util.Log
 import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.google.android.material.appbar.MaterialToolbar
+import com.google.firebase.firestore.FirebaseFirestore
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
-import kotlin.random.Random
+import java.util.Locale
 
 class ActivityScanResult : AppCompatActivity() {
+
+    private var variety: String = "Unknown"
+    private var ripeness: String = "Unknown"
+    private var confidenceRaw: String = "0"
+    private var imageUri: String? = null
+    private var alreadySaved = false
+    private val tag = "FirestoreSave"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_scan_result)
 
-        // --- Toolbar setup ---
         val toolbar = findViewById<MaterialToolbar>(R.id.toolbar)
         setSupportActionBar(toolbar)
         toolbar.setNavigationOnClickListener {
@@ -29,10 +38,10 @@ class ActivityScanResult : AppCompatActivity() {
         }
 
         // --- Retrieve data from Intent ---
-        val variety = intent.getStringExtra("variety") ?: "Unknown"
-        val ripeness = intent.getStringExtra("ripeness") ?: "Unknown"
-        val confidenceRaw = intent.getStringExtra("confidence") ?: "0"
-        val imageUri = intent.getStringExtra("image_uri")
+        variety = intent.getStringExtra("variety") ?: "Unknown"
+        ripeness = intent.getStringExtra("ripeness") ?: "Unknown"
+        confidenceRaw = intent.getStringExtra("confidence") ?: "0"
+        imageUri = intent.getStringExtra("image_uri")
 
         // --- Bind UI elements ---
         val varietyName = findViewById<TextView>(R.id.varietyName)
@@ -43,18 +52,30 @@ class ActivityScanResult : AppCompatActivity() {
         val scannedImage = findViewById<ImageView>(R.id.scannedImage)
         val estimationText = findViewById<TextView>(R.id.estimationText)
         val btnAssessRipeness = findViewById<Button>(R.id.btnAssessRipeness)
+        val selfAssessmentNote = findViewById<TextView>(R.id.selfAssessmentNote)
 
         // --- Normalize confidence ---
         val confidenceVal = confidenceRaw.toFloatOrNull()?.coerceIn(0f, 100f)?.roundToInt() ?: 0
         confidenceText.text = "$confidenceVal% confidence"
 
-        // --- Image preview (safe) ---
+        // --- Load image if available ---
         imageUri?.let { runCatching { scannedImage.setImageURI(Uri.parse(it)) } }
 
-        // --- Assign variety ---
+        // --- Assign variety details ---
         varietyName.text = variety
-        val varietyLower = variety.lowercase()
-        val ripenessLower = ripeness.lowercase()
+        val varietyLower = variety.lowercase(Locale.ROOT)
+        val ripenessLower = ripeness.lowercase(Locale.ROOT)
+
+        // --- Conditional note visibility for manual-assessment varieties (broader match) ---
+        if (
+            varietyLower.contains("kabayo") ||
+            varietyLower.contains("indian") ||
+            varietyLower.contains("apple")
+        ) {
+            selfAssessmentNote.visibility = View.VISIBLE
+        } else {
+            selfAssessmentNote.visibility = View.GONE
+        }
 
         when {
             varietyLower.contains("cebu") -> {
@@ -97,18 +118,14 @@ class ActivityScanResult : AppCompatActivity() {
                 }
             }
 
-            // 🔹 Manual Assessment Varieties
+            // Manual-assessment varieties
             varietyLower.contains("kabayo") || varietyLower.contains("indian") || varietyLower.contains("apple") -> {
                 ripenessState.text = "Tap to assess manually"
                 ripenessState.setTextColor(ContextCompat.getColor(this, R.color.black))
                 ripenessProgressBar.visibility = View.GONE
                 ripenessPercentage.visibility = View.GONE
-
-                // First button appearance: "Assess Ripeness"
                 btnAssessRipeness.text = "Assess Ripeness"
                 btnAssessRipeness.visibility = View.VISIBLE
-
-                // Pass state of first assessment into dialog
                 btnAssessRipeness.setOnClickListener {
                     showRipenessDialog(variety, ripenessState, ripenessProgressBar, ripenessPercentage, estimationText, btnAssessRipeness)
                 }
@@ -121,10 +138,46 @@ class ActivityScanResult : AppCompatActivity() {
                 ripenessPercentage.visibility = View.GONE
             }
         }
+
+        // --- Save the scan to Firestore ---
+        saveToHistory()
+    }
+
+    /** Save scan details to Firestore **/
+    private fun saveToHistory() {
+        if (alreadySaved) return
+        alreadySaved = true
+
+        try {
+            val firestore = FirebaseFirestore.getInstance()
+            val deviceId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
+
+            val data = hashMapOf(
+                "deviceId" to deviceId,
+                "variety" to variety,
+                "ripeness" to ripeness,
+                "confidence" to confidenceRaw,
+                "imageUri" to (imageUri ?: ""),
+                "timestamp" to System.currentTimeMillis()
+            )
+
+            Log.d(tag, "Attempting to save to Firestore: $data")
+
+            firestore.collection("scan_history").add(data)
+                .addOnSuccessListener {
+                    Log.d(tag, "✅ Successfully saved scan to Firestore")
+                }
+                .addOnFailureListener { e ->
+                    Log.e(tag, "❌ Firestore save failed: ${e.message}", e)
+                    Toast.makeText(this, "Firestore save failed: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+        } catch (e: Exception) {
+            Log.e(tag, "Exception during Firestore save", e)
+            Toast.makeText(this, "Firestore exception: ${e.message}", Toast.LENGTH_LONG).show()
+        }
     }
 
     // --- Manual Assessment Dialog ---
-    // --- Manual Assessment Dialog (Realistic Firmness + Aroma) ---
     private fun showRipenessDialog(
         variety: String,
         stateView: TextView,
@@ -137,19 +190,8 @@ class ActivityScanResult : AppCompatActivity() {
         val spinnerFirmness = dialogView.findViewById<Spinner>(R.id.spinnerFirmness)
         val spinnerAroma = dialogView.findViewById<Spinner>(R.id.spinnerAroma)
 
-        // Observable characteristics
-        val firmnessOptions = arrayOf(
-            "Very hard",
-            "Firm (slightly yielding)",
-            "Firm but gives easily",
-            "Soft"
-        )
-        val aromaOptions = arrayOf(
-            "None",
-            "Very faint",
-            "Mild",
-            "Strong"
-        )
+        val firmnessOptions = arrayOf("Very hard", "Firm (slightly yielding)", "Firm but gives easily", "Soft")
+        val aromaOptions = arrayOf("None", "Very faint", "Mild", "Strong")
 
         spinnerFirmness.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, firmnessOptions)
         spinnerAroma.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, aromaOptions)
@@ -161,42 +203,26 @@ class ActivityScanResult : AppCompatActivity() {
                 val firmness = spinnerFirmness.selectedItemPosition
                 val aroma = spinnerAroma.selectedItemPosition
 
-                // Determine ripeness stage
                 val result = when {
-                    // Unripe (very hard + no aroma)
-                    firmness == 0 && aroma == 0 ->
-                        Triple("Unripe", R.color.design_default_color_error, 25)
-
-                    // Slightly Ripe (one factor starts changing)
+                    firmness == 0 && aroma == 0 -> Triple("Unripe", R.color.design_default_color_error, 25)
                     (firmness == 1 && aroma == 0) || (firmness == 0 && aroma == 1) ->
                         Triple("Slightly Ripe", R.color.yellow, 45)
-
-                    // Ripe (soft + strong aroma)
-                    firmness == 3 && aroma == 3 ->
-                        Triple("Ripe", R.color.teal_700, 100)
-
-                    // Everything in between
-                    else ->
-                        Triple("Almost Ripe", R.color.orange, 70)
+                    firmness == 3 && aroma == 3 -> Triple("Ripe", R.color.teal_700, 100)
+                    else -> Triple("Almost Ripe", R.color.orange, 70)
                 }
-
 
                 setRipeness(stateView, bar, percentView, result.first, result.second, result.third)
                 bar.visibility = View.VISIBLE
                 percentView.visibility = View.VISIBLE
                 setEstimation(estimationText, result.first)
-
-                // After first submit → allow re‑assessment
                 assessButton.text = "Assess again?"
             }
             .setNegativeButton("Cancel", null)
             .show()
     }
 
-    // --- Estimation Logic ---
-    // --- Accurate Estimation Logic ---
     private fun setEstimation(estimationText: TextView, ripenessStage: String) {
-        when (ripenessStage.lowercase()) {
+        when (ripenessStage.lowercase(Locale.ROOT)) {
             "unripe" -> {
                 estimationText.text = "Estimated 7–10 days to full ripeness\nStore at room temperature for best results"
                 estimationText.setTextColor(ContextCompat.getColor(this, R.color.brown))
@@ -217,7 +243,6 @@ class ActivityScanResult : AppCompatActivity() {
         }
     }
 
-    // --- Helper: set ripeness visuals ---
     private fun setRipeness(
         stateView: TextView,
         bar: ProgressBar,
@@ -233,7 +258,6 @@ class ActivityScanResult : AppCompatActivity() {
         percentView.text = "$clamped%"
     }
 
-    // --- Helper: clear UI when ripeness unknown ---
     private fun clearRipeness(stateView: TextView, bar: ProgressBar, percentView: TextView) {
         stateView.text = "Unknown ripeness"
         stateView.setTextColor(ContextCompat.getColor(this, R.color.black))
