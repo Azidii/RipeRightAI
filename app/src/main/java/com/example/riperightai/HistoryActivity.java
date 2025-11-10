@@ -8,185 +8,235 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
+import android.widget.Toast;
 
-import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.bumptech.glide.Glide;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
-import com.google.firebase.firestore.EventListener;
+import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.firestore.FirebaseFirestoreException;
 import com.google.firebase.firestore.ListenerRegistration;
 import com.google.firebase.firestore.Query;
-import com.google.firebase.firestore.QueryDocumentSnapshot;
 import com.google.firebase.firestore.QuerySnapshot;
+import com.google.firebase.firestore.WriteBatch;
 
-import java.text.SimpleDateFormat;
+import java.text.DateFormat;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.Locale;
 
 public class HistoryActivity extends AppCompatActivity {
 
-    private FirebaseFirestore firestore;
+    private FirebaseFirestore db;
+    private ListenerRegistration registration;
+
     private LinearLayout historyContainer;
-    private String deviceId;
-    private ListenerRegistration snapshotListener;
+    private View emptyStateLayout;
+    private ScrollView historyScroll;
     private TextView headerSubtitle;
-    private LinearLayout emptyStateLayout;
+    private TextView emptyTitle; // optional
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
+    protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_history);
 
-        firestore = FirebaseFirestore.getInstance();
-        historyContainer = findViewById(R.id.historyContainer);
-        headerSubtitle = findViewById(R.id.headerSubtitle);
-        emptyStateLayout = findViewById(R.id.emptyStateLayout);
+        db = FirebaseFirestore.getInstance();
 
-        deviceId = Settings.Secure.getString(getContentResolver(), Settings.Secure.ANDROID_ID);
-        if (deviceId == null || deviceId.isEmpty()) deviceId = "UNKNOWN_DEVICE";
+        historyContainer  = findViewById(R.id.historyContainer);
+        emptyStateLayout  = findViewById(R.id.emptyStateLayout);
+        historyScroll     = findViewById(R.id.historyScroll);
+        headerSubtitle    = findViewById(R.id.headerSubtitle);
 
-        BottomNavigationView bottomNav = findViewById(R.id.bottom_navigation);
-        bottomNav.setSelectedItemId(R.id.navigation_history);
-        bottomNav.setOnItemSelectedListener(item -> {
-            if (item.getItemId() == R.id.navigation_scan) {
-                startActivity(new Intent(this, MainActivity.class));
-                overridePendingTransition(android.R.anim.slide_in_left, android.R.anim.slide_out_right);
-                finish();
-                return true;
-            }
-            return item.getItemId() == R.id.navigation_history;
-        });
-
-        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
-            @Override
-            public void handleOnBackPressed() {
-                startActivity(new Intent(HistoryActivity.this, MainActivity.class));
-                overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
-                finish();
-            }
-        });
-
-        loadHistory();
-    }
-
-    private void loadHistory() {
-        if (snapshotListener != null) {
-            snapshotListener.remove();
-            snapshotListener = null;
+        // ---- Bottom navigation ----
+        BottomNavigationView nav = findViewById(R.id.bottom_navigation);
+        if (nav != null) {
+            nav.setOnItemSelectedListener(item -> {
+                int id = item.getItemId();
+                if (id == getIdSafely("menu_scan") || id == getIdSafely("navigation_scan")) {
+                    // Go to scan flow and close this so back doesn’t bounce here
+                    startActivity(new Intent(this, ActivityScanLoading.class));
+                    finish();
+                    return true;
+                } else if (id == getIdSafely("menu_history") || id == getIdSafely("navigation_history")) {
+                    return true; // already here
+                }
+                return false;
+            });
+            int historyId = getExistingMenuId(nav,
+                    getIdSafely("menu_history"), getIdSafely("navigation_history"));
+            if (historyId != 0) nav.setSelectedItemId(historyId);
         }
 
-        snapshotListener = firestore.collection("scan_history")
-                .whereEqualTo("deviceId", deviceId)
-                .orderBy("timestamp", Query.Direction.DESCENDING)
-                .addSnapshotListener(new EventListener<QuerySnapshot>() {
-                    @Override
-                    public void onEvent(@Nullable QuerySnapshot querySnapshot,
-                                        @Nullable FirebaseFirestoreException e) {
-                        if (isFinishing() || isDestroyed()) return;
-                        if (e != null) {
-                            e.printStackTrace();
-                            return;
-                        }
+        // Optional: set empty-state title if present
+        if (emptyStateLayout instanceof LinearLayout) {
+            LinearLayout ll = (LinearLayout) emptyStateLayout;
+            if (ll.getChildCount() > 1 && ll.getChildAt(1) instanceof TextView) {
+                emptyTitle = (TextView) ll.getChildAt(1);
+                emptyTitle.setText("No Scans as of the Moment");
+            }
+        }
 
-                        historyContainer.removeAllViews();
-                        int scanCount = (querySnapshot != null) ? querySnapshot.size() : 0;
+        startListening();
+    }
 
-                        // 🔄 update header
-                        headerSubtitle.setText(scanCount + " scan" + (scanCount == 1 ? "" : "s") + " recorded");
+    private void startListening() {
+        String deviceId = Settings.Secure.getString(getContentResolver(), Settings.Secure.ANDROID_ID);
 
-                        // toggle empty state
-                        emptyStateLayout.setVisibility(scanCount == 0 ? View.VISIBLE : View.GONE);
+        // ⚠️ No server-side orderBy to avoid composite index requirement.
+        Query q = db.collection("scan_history")
+                .whereEqualTo("deviceId", deviceId);
 
-                        if (querySnapshot == null || querySnapshot.isEmpty()) return;
+        registration = q.addSnapshotListener(this, (snap, err) -> {
+            if (err != null) {
+                Toast.makeText(this, "History error: " + err.getMessage(), Toast.LENGTH_LONG).show();
+                showEmpty(true);
+                if (headerSubtitle != null) headerSubtitle.setText("0 scans recorded");
+                return;
+            }
+            render(snap);
+        });
+    }
 
-                        for (QueryDocumentSnapshot doc : querySnapshot) {
-                            String docId = doc.getId();
-                            String variety = doc.getString("variety");
-                            String ripeness = doc.getString("ripeness");
-                            String confidence = doc.getString("confidence");
-                            String imageUri = doc.getString("imageUri");
-                            Long timestamp = doc.getLong("timestamp");
+    private void render(@Nullable QuerySnapshot snap) {
+        historyContainer.removeAllViews();
 
-                            String formattedDate = "Unknown date";
-                            if (timestamp != null) {
-                                formattedDate = new SimpleDateFormat(
-                                        "MMM dd, yyyy hh:mm a",
-                                        Locale.getDefault()
-                                ).format(new Date(timestamp));
-                            }
+        if (snap == null || snap.isEmpty()) {
+            showEmpty(true);
+            if (headerSubtitle != null) headerSubtitle.setText("0 scans recorded");
+            return;
+        }
 
-                            View itemView = LayoutInflater.from(HistoryActivity.this)
-                                    .inflate(R.layout.item_history, historyContainer, false);
+        // Sort in-memory by timestamp desc (no index needed)
+        ArrayList<DocumentSnapshot> docs = new ArrayList<>(snap.getDocuments());
+        Collections.sort(docs, new Comparator<DocumentSnapshot>() {
+            @Override
+            public int compare(DocumentSnapshot a, DocumentSnapshot b) {
+                long ta = safeTimestamp(a.get("timestamp"));
+                long tb = safeTimestamp(b.get("timestamp"));
+                // Descending
+                return Long.compare(tb, ta);
+            }
+        });
 
-                            ImageView mangoImage = itemView.findViewById(R.id.historyImage);
-                            TextView txtVariety = itemView.findViewById(R.id.txtVariety);
-                            TextView txtRipeness = itemView.findViewById(R.id.txtRipeness);
-                            TextView txtConfidence = itemView.findViewById(R.id.txtConfidence);
-                            TextView txtDate = itemView.findViewById(R.id.txtDate);
+        showEmpty(false);
+        if (headerSubtitle != null) headerSubtitle.setText(docs.size() + " scans recorded");
 
-                            txtVariety.setText(variety != null ? variety : "Unknown Variety");
-                            txtRipeness.setText("Ripeness: " + (ripeness != null ? ripeness : "N/A"));
-                            txtConfidence.setText("Confidence: " + (confidence != null ? confidence : "N/A"));
-                            txtDate.setText("Scanned on: " + formattedDate);
+        LayoutInflater inflater = LayoutInflater.from(this);
+        DateFormat df = DateFormat.getDateTimeInstance(
+                DateFormat.MEDIUM, DateFormat.SHORT, Locale.getDefault()
+        );
 
-                            if (imageUri != null && !imageUri.isEmpty()) {
-                                Glide.with(getApplicationContext())
-                                        .load(Uri.parse(imageUri))
-                                        .into(mangoImage);
-                            }
+        for (DocumentSnapshot doc : docs) {
+            View row = inflater.inflate(R.layout.item_history, historyContainer, false);
 
-                            // 🗑 delete handler
-                            itemView.setOnClickListener(v -> {
-                                new androidx.appcompat.app.AlertDialog.Builder(HistoryActivity.this)
-                                        .setTitle("Delete this scan?")
-                                        .setMessage("Are you sure you want to delete this scan record?")
-                                        .setPositiveButton("Delete", (dialog, which) -> {
-                                            firestore.collection("scan_history")
-                                                    .document(docId)
-                                                    .delete()
-                                                    .addOnSuccessListener(aVoid -> {
-                                                        // ✅ Instant local UI update
-                                                        historyContainer.removeView(itemView);
-                                                        int current = historyContainer.getChildCount();
-                                                        headerSubtitle.setText(current + " scan" + (current == 1 ? "" : "s") + " recorded");
-                                                        if (current == 0)
-                                                            emptyStateLayout.setVisibility(View.VISIBLE);
+            ImageView img   = row.findViewById(R.id.historyImage);
+            View trash      = row.findViewById(R.id.btnDelete);
+            TextView tvVar  = row.findViewById(R.id.txtVariety);
+            TextView tvRip  = row.findViewById(R.id.txtRipeness);
+            TextView tvConf = row.findViewById(R.id.txtConfidence);
+            TextView tvDate = row.findViewById(R.id.txtDate);
 
-                                                        android.widget.Toast.makeText(
-                                                                HistoryActivity.this,
-                                                                "Deleted successfully",
-                                                                android.widget.Toast.LENGTH_SHORT
-                                                        ).show();
-                                                    })
-                                                    .addOnFailureListener(err ->
-                                                            android.widget.Toast.makeText(
-                                                                    HistoryActivity.this,
-                                                                    "Delete failed: " + err.getMessage(),
-                                                                    android.widget.Toast.LENGTH_LONG
-                                                            ).show()
-                                                    );
-                                        })
-                                        .setNegativeButton("Cancel", null)
-                                        .show();
-                            });
+            String variety    = safeString(doc.get("variety"));
+            String ripeness   = safeString(doc.get("ripeness"));
+            String confidence = safeString(doc.get("confidence"));
+            String imageUri   = safeString(doc.get("imageUri"));
+            long tsMillis     = safeTimestamp(doc.get("timestamp"));
 
-                            historyContainer.addView(itemView);
-                        }
+            tvVar.setText(!variety.isEmpty() ? variety : "Unknown");
+            tvRip.setText(!ripeness.isEmpty() ? ripeness : "Unknown");
+            tvConf.setText(!confidence.isEmpty() ? "Confidence: " + confidence + "%" : "Confidence: —");
+            tvDate.setText(tsMillis > 0 ? df.format(new Date(tsMillis)) : "");
+
+            // If imageUri is a network URL, setImageURI won't load it (needs Glide/Picasso)
+            if (!imageUri.isEmpty()) {
+                try { img.setImageURI(Uri.parse(imageUri)); } catch (Exception ignored) {}
+            }
+
+            // Confirm before delete; UI auto-refreshes via listener
+            if (trash != null) {
+                trash.setOnClickListener(v -> {
+                    new AlertDialog.Builder(this)
+                            .setTitle("Delete scan?")
+                            .setMessage("This will remove the selected history.")
+                            .setPositiveButton("Delete", (d, w) ->
+                                    doc.getReference().delete()
+                                            .addOnSuccessListener(aVoid -> Toast.makeText(this, "Scan deleted", Toast.LENGTH_SHORT).show())
+                                            .addOnFailureListener(e -> Toast.makeText(this, "Delete failed: " + e.getMessage(), Toast.LENGTH_LONG).show())
+                            )
+                            .setNegativeButton("Cancel", null)
+                            .show();
+                });
+            }
+
+            historyContainer.addView(row);
+        }
+    }
+
+    private void showEmpty(boolean empty) {
+        if (emptyStateLayout != null) emptyStateLayout.setVisibility(empty ? View.VISIBLE : View.GONE);
+        if (historyScroll != null) historyScroll.setVisibility(empty ? View.GONE : View.VISIBLE);
+    }
+
+    // Optional bulk delete
+    private void deleteAll() {
+        String deviceId = Settings.Secure.getString(getContentResolver(), Settings.Secure.ANDROID_ID);
+        db.collection("scan_history").whereEqualTo("deviceId", deviceId).get()
+                .addOnSuccessListener(snap -> {
+                    WriteBatch batch = db.batch();
+                    for (DocumentSnapshot d : snap.getDocuments()) {
+                        batch.delete(d.getReference());
                     }
+                    batch.commit().addOnSuccessListener(aVoid ->
+                            Toast.makeText(this, "All history deleted", Toast.LENGTH_SHORT).show()
+                    ).addOnFailureListener(e ->
+                            Toast.makeText(this, "Delete failed: " + e.getMessage(), Toast.LENGTH_LONG).show()
+                    );
                 });
     }
 
     @Override
     protected void onDestroy() {
-        if (snapshotListener != null) {
-            snapshotListener.remove();
-            snapshotListener = null;
-        }
         super.onDestroy();
+        if (registration != null) registration.remove();
+    }
+
+    // ----------------- Helpers -----------------
+
+    private static String safeString(Object val) {
+        return val == null ? "" : String.valueOf(val);
+    }
+
+    /** Accepts Long/Double/String millis; returns 0 if invalid. */
+    private static long safeTimestamp(Object ts) {
+        try {
+            if (ts instanceof Number) return ((Number) ts).longValue();
+            if (ts instanceof String) return Long.parseLong((String) ts);
+        } catch (Exception ignored) {}
+        return 0L;
+    }
+
+    /** Get an R.id.* safely by name; returns 0 if not found. */
+    private int getIdSafely(String idName) {
+        try {
+            return getResources().getIdentifier(idName, "id", getPackageName());
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
+    /** Returns the first ID that exists in the nav menu, else 0. */
+    private int getExistingMenuId(BottomNavigationView nav, int... ids) {
+        if (nav == null || nav.getMenu() == null) return 0;
+        for (int id : ids) {
+            if (id != 0 && nav.getMenu().findItem(id) != null) return id;
+        }
+        return 0;
     }
 }

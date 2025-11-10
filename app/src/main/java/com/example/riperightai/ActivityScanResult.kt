@@ -15,6 +15,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
+import java.util.Locale
 
 class ActivityScanResult : AppCompatActivity() {
 
@@ -51,6 +52,7 @@ class ActivityScanResult : AppCompatActivity() {
         val scannedImage = findViewById<ImageView>(R.id.scannedImage)
         val estimationText = findViewById<TextView>(R.id.estimationText)
         val btnAssessRipeness = findViewById<Button>(R.id.btnAssessRipeness)
+        val selfAssessmentNote = findViewById<TextView>(R.id.selfAssessmentNote)
 
         // --- Normalize confidence ---
         val confidenceVal = confidenceRaw.toFloatOrNull()?.coerceIn(0f, 100f)?.roundToInt() ?: 0
@@ -61,8 +63,19 @@ class ActivityScanResult : AppCompatActivity() {
 
         // --- Assign variety details ---
         varietyName.text = variety
-        val varietyLower = variety.lowercase()
-        val ripenessLower = ripeness.lowercase()
+        val varietyLower = variety.lowercase(Locale.ROOT)
+        val ripenessLower = ripeness.lowercase(Locale.ROOT)
+
+        // --- Conditional note visibility for manual-assessment varieties (broader match) ---
+        if (
+            varietyLower.contains("kabayo") ||
+            varietyLower.contains("indian") ||
+            varietyLower.contains("apple")
+        ) {
+            selfAssessmentNote.visibility = View.VISIBLE
+        } else {
+            selfAssessmentNote.visibility = View.GONE
+        }
 
         when {
             varietyLower.contains("cebu") -> {
@@ -105,7 +118,7 @@ class ActivityScanResult : AppCompatActivity() {
                 }
             }
 
-            // Manual‑assessment varieties
+            // Manual-assessment varieties
             varietyLower.contains("kabayo") || varietyLower.contains("indian") || varietyLower.contains("apple") -> {
                 ripenessState.text = "Tap to assess manually"
                 ripenessState.setTextColor(ContextCompat.getColor(this, R.color.black))
@@ -137,12 +150,10 @@ class ActivityScanResult : AppCompatActivity() {
 
         try {
             val firestore = FirebaseFirestore.getInstance()
-
-            // ✅ Add deviceId for per-device scan history
             val deviceId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
 
             val data = hashMapOf(
-                "deviceId" to deviceId, // required by rules and HistoryActivity
+                "deviceId" to deviceId,
                 "variety" to variety,
                 "ripeness" to ripeness,
                 "confidence" to confidenceRaw,
@@ -211,7 +222,7 @@ class ActivityScanResult : AppCompatActivity() {
     }
 
     private fun setEstimation(estimationText: TextView, ripenessStage: String) {
-        when (ripenessStage.lowercase()) {
+        when (ripenessStage.lowercase(Locale.ROOT)) {
             "unripe" -> {
                 estimationText.text = "Estimated 7–10 days to full ripeness\nStore at room temperature for best results"
                 estimationText.setTextColor(ContextCompat.getColor(this, R.color.brown))

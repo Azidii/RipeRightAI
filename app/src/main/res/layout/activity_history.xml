@@ -65,15 +65,18 @@
             app:tint="#A0A0A0"
             android:src="@drawable/ic_history" />
 
+        <!-- Empty state title -->
         <TextView
+            android:id="@+id/emptyTitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="No Scans Yet"
+            android:text="No Scans as of the Moment"
             android:textSize="18sp"
             android:textStyle="bold"
             android:textColor="#A0A0A0"
             android:layout_marginTop="16dp" />
 
+        <!-- Empty state subtitle -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
