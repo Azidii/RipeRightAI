@@ -3,7 +3,6 @@ package com.example.riperightai;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.Handler;
 import android.provider.Settings;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -43,12 +42,7 @@ public class HistoryActivity extends AppCompatActivity {
 
         firestore = FirebaseFirestore.getInstance();
         historyContainer = findViewById(R.id.historyContainer);
-
-        // ✅ Ensure non-null deviceId
         deviceId = Settings.Secure.getString(getContentResolver(), Settings.Secure.ANDROID_ID);
-        if (deviceId == null || deviceId.isEmpty()) {
-            deviceId = "UNKNOWN_DEVICE";
-        }
 
         // --- Bottom navigation setup ---
         BottomNavigationView bottomNav = findViewById(R.id.bottom_navigation);
@@ -88,7 +82,6 @@ public class HistoryActivity extends AppCompatActivity {
             snapshotListener = null;
         }
 
-        // ✅ Listen for only this device’s scans
         snapshotListener = firestore.collection("scan_history")
                 .whereEqualTo("deviceId", deviceId)
                 .orderBy("timestamp", Query.Direction.DESCENDING)
@@ -102,19 +95,22 @@ public class HistoryActivity extends AppCompatActivity {
                             return;
                         }
 
-                        historyContainer.removeAllViews();
-
+                        // Prevent UI flicker: only update if we actually have docs to show
                         if (querySnapshot == null || querySnapshot.isEmpty()) {
-                            TextView emptyView = new TextView(HistoryActivity.this);
-                            emptyView.setText("No history found for this device.\nTry scanning a mango first!");
-                            emptyView.setTextSize(16);
-                            emptyView.setPadding(20, 40, 20, 40);
-                            historyContainer.addView(emptyView);
+                            if (historyContainer.getChildCount() == 0) {
+                                TextView emptyView = new TextView(HistoryActivity.this);
+                                emptyView.setText("No scan history yet. Try scanning a mango!");
+                                emptyView.setTextSize(16);
+                                emptyView.setPadding(20, 40, 20, 40);
+                                historyContainer.addView(emptyView);
+                            }
                             return;
                         }
 
+                        // Clear existing only when we have new valid data
+                        historyContainer.removeAllViews();
+
                         for (QueryDocumentSnapshot doc : querySnapshot) {
-                            String docId = doc.getId();
                             String variety = doc.getString("variety");
                             String ripeness = doc.getString("ripeness");
                             String confidence = doc.getString("confidence");
@@ -149,52 +145,16 @@ public class HistoryActivity extends AppCompatActivity {
                                         .into(mangoImage);
                             }
 
-                            // 🗑️ Delete handler
-                            itemView.setOnClickListener(v -> {
-                                new androidx.appcompat.app.AlertDialog.Builder(HistoryActivity.this)
-                                        .setTitle("Delete this scan?")
-                                        .setMessage("Are you sure you want to delete this scan record?")
-                                        .setPositiveButton("Delete", (dialog, which) -> {
-                                            firestore.collection("scan_history")
-                                                    .document(docId)
-                                                    .delete()
-                                                    .addOnSuccessListener(aVoid -> {
-                                                        android.widget.Toast.makeText(
-                                                                HistoryActivity.this,
-                                                                "Deleted successfully",
-                                                                android.widget.Toast.LENGTH_SHORT
-                                                        ).show();
-                                                        refreshHistory();
-                                                    })
-                                                    .addOnFailureListener(err -> {
-                                                        android.widget.Toast.makeText(
-                                                                HistoryActivity.this,
-                                                                "Delete failed: " + err.getMessage(),
-                                                                android.widget.Toast.LENGTH_LONG
-                                                        ).show();
-                                                    });
-                                        })
-                                        .setNegativeButton("Cancel", null)
-                                        .show();
-                            });
-
                             historyContainer.addView(itemView);
                         }
                     }
                 });
     }
 
-    private void refreshHistory() {
-        if (snapshotListener != null) {
-            snapshotListener.remove();
-            snapshotListener = null;
-        }
-        new Handler().postDelayed(this::loadHistory, 300);
-    }
-
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        // Only remove listener when activity truly ends
         if (snapshotListener != null) {
             snapshotListener.remove();
             snapshotListener = null;
