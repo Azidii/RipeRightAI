@@ -43,8 +43,6 @@ class ActivityScanLoading : AppCompatActivity() {
 
                 val result = detectMango(safeUri)
 
-                // 🔥 Firestore integration – save scan record
-                saveToFirestore(result)
 
                 withContext(Dispatchers.Main) {
                     if (!isFinishing && !isDestroyed && !isTransitioning) {
@@ -92,7 +90,7 @@ class ActivityScanLoading : AppCompatActivity() {
         tflite?.close(); tflite = null
     }
 
-    /** Copy selected image into cache for safe access **/
+    /** Copy selected image into cache for safe access */
     private fun copyImageToCache(sourceUri: Uri): Uri {
         val inputStream = contentResolver.openInputStream(sourceUri)
             ?: throw Exception("Unable to open image from URI.")
@@ -103,7 +101,7 @@ class ActivityScanLoading : AppCompatActivity() {
         return Uri.fromFile(outFile)
     }
 
-    /** Map the .tflite file into memory **/
+    /** Map the .tflite file into memory */
     private fun loadModelFile(filename: String): MappedByteBuffer {
         val fd = assets.openFd(filename)
         FileInputStream(fd.fileDescriptor).use { stream ->
@@ -202,18 +200,27 @@ class ActivityScanLoading : AppCompatActivity() {
         return MangoResult(variety, ripeness, confidencePct, imageUri.toString())
     }
 
-    /** Save each scan result to Firestore **/
+    /** Save each scan result to Firestore */
     private fun saveToFirestore(result: MangoResult) {
         try {
             val firestore = FirebaseFirestore.getInstance()
             val timestamp = System.currentTimeMillis()
+
+            // ✅ Added: capture unique device ID
+            val deviceId = android.provider.Settings.Secure.getString(
+                contentResolver,
+                android.provider.Settings.Secure.ANDROID_ID
+            )
+
             val data = hashMapOf(
                 "variety" to result.variety,
                 "ripeness" to result.ripeness,
                 "confidence" to result.confidence,
                 "imageUri" to result.imageUri,
-                "timestamp" to timestamp
+                "timestamp" to timestamp,
+                "deviceId" to deviceId // required by security rules & HistoryActivity
             )
+
             firestore.collection("scan_history").add(data)
                 .addOnSuccessListener {
                     Log.d(tag, "✅ Scan saved to Firestore.")

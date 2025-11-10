@@ -138,12 +138,11 @@ class ActivityScanResult : AppCompatActivity() {
         try {
             val firestore = FirebaseFirestore.getInstance()
 
-            // 🔑 Each device has a unique ID stored by Android
+            // ✅ Add deviceId for per-device scan history
             val deviceId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
 
-            // 🔹 Add deviceId so each phone has its own history in one shared DB
             val data = hashMapOf(
-                "deviceId" to deviceId,
+                "deviceId" to deviceId, // required by rules and HistoryActivity
                 "variety" to variety,
                 "ripeness" to ripeness,
                 "confidence" to confidenceRaw,
@@ -167,7 +166,7 @@ class ActivityScanResult : AppCompatActivity() {
         }
     }
 
-    // --- Manual Assessment Dialog (lightly fixed) ---
+    // --- Manual Assessment Dialog ---
     private fun showRipenessDialog(
         variety: String,
         stateView: TextView,
