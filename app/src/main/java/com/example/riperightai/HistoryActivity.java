@@ -60,8 +60,13 @@ public class HistoryActivity extends AppCompatActivity {
             nav.setOnItemSelectedListener(item -> {
                 int id = item.getItemId();
                 if (id == getIdSafely("menu_scan") || id == getIdSafely("navigation_scan")) {
-                    // Go to scan flow and close this so back doesn’t bounce here
-                    startActivity(new Intent(this, ActivityScanLoading.class));
+                    // Go back to main activity
+                    Intent intent = new Intent(this, MainActivity.class);
+                    startActivity(intent);
+
+                    // Reverse transition (History → Main)
+                    overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right);
+
                     finish();
                     return true;
                 } else if (id == getIdSafely("menu_history") || id == getIdSafely("navigation_history")) {
@@ -69,6 +74,7 @@ public class HistoryActivity extends AppCompatActivity {
                 }
                 return false;
             });
+
             int historyId = getExistingMenuId(nav,
                     getIdSafely("menu_history"), getIdSafely("navigation_history"));
             if (historyId != 0) nav.setSelectedItemId(historyId);
@@ -88,8 +94,6 @@ public class HistoryActivity extends AppCompatActivity {
 
     private void startListening() {
         String deviceId = Settings.Secure.getString(getContentResolver(), Settings.Secure.ANDROID_ID);
-
-        // ⚠️ No server-side orderBy to avoid composite index requirement.
         Query q = db.collection("scan_history")
                 .whereEqualTo("deviceId", deviceId);
 
@@ -113,25 +117,14 @@ public class HistoryActivity extends AppCompatActivity {
             return;
         }
 
-        // Sort in-memory by timestamp desc (no index needed)
         ArrayList<DocumentSnapshot> docs = new ArrayList<>(snap.getDocuments());
-        Collections.sort(docs, new Comparator<DocumentSnapshot>() {
-            @Override
-            public int compare(DocumentSnapshot a, DocumentSnapshot b) {
-                long ta = safeTimestamp(a.get("timestamp"));
-                long tb = safeTimestamp(b.get("timestamp"));
-                // Descending
-                return Long.compare(tb, ta);
-            }
-        });
+        Collections.sort(docs, (a, b) -> Long.compare(safeTimestamp(b.get("timestamp")), safeTimestamp(a.get("timestamp"))));
 
         showEmpty(false);
         if (headerSubtitle != null) headerSubtitle.setText(docs.size() + " scans recorded");
 
         LayoutInflater inflater = LayoutInflater.from(this);
-        DateFormat df = DateFormat.getDateTimeInstance(
-                DateFormat.MEDIUM, DateFormat.SHORT, Locale.getDefault()
-        );
+        DateFormat df = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT, Locale.getDefault());
 
         for (DocumentSnapshot doc : docs) {
             View row = inflater.inflate(R.layout.item_history, historyContainer, false);
@@ -154,12 +147,10 @@ public class HistoryActivity extends AppCompatActivity {
             tvConf.setText(!confidence.isEmpty() ? "Confidence: " + confidence + "%" : "Confidence: —");
             tvDate.setText(tsMillis > 0 ? df.format(new Date(tsMillis)) : "");
 
-            // If imageUri is a network URL, setImageURI won't load it (needs Glide/Picasso)
             if (!imageUri.isEmpty()) {
                 try { img.setImageURI(Uri.parse(imageUri)); } catch (Exception ignored) {}
             }
 
-            // Confirm before delete; UI auto-refreshes via listener
             if (trash != null) {
                 trash.setOnClickListener(v -> {
                     new AlertDialog.Builder(this)
@@ -184,36 +175,16 @@ public class HistoryActivity extends AppCompatActivity {
         if (historyScroll != null) historyScroll.setVisibility(empty ? View.GONE : View.VISIBLE);
     }
 
-    // Optional bulk delete
-    private void deleteAll() {
-        String deviceId = Settings.Secure.getString(getContentResolver(), Settings.Secure.ANDROID_ID);
-        db.collection("scan_history").whereEqualTo("deviceId", deviceId).get()
-                .addOnSuccessListener(snap -> {
-                    WriteBatch batch = db.batch();
-                    for (DocumentSnapshot d : snap.getDocuments()) {
-                        batch.delete(d.getReference());
-                    }
-                    batch.commit().addOnSuccessListener(aVoid ->
-                            Toast.makeText(this, "All history deleted", Toast.LENGTH_SHORT).show()
-                    ).addOnFailureListener(e ->
-                            Toast.makeText(this, "Delete failed: " + e.getMessage(), Toast.LENGTH_LONG).show()
-                    );
-                });
-    }
-
     @Override
     protected void onDestroy() {
         super.onDestroy();
         if (registration != null) registration.remove();
     }
 
-    // ----------------- Helpers -----------------
-
     private static String safeString(Object val) {
         return val == null ? "" : String.valueOf(val);
     }
 
-    /** Accepts Long/Double/String millis; returns 0 if invalid. */
     private static long safeTimestamp(Object ts) {
         try {
             if (ts instanceof Number) return ((Number) ts).longValue();
@@ -222,7 +193,6 @@ public class HistoryActivity extends AppCompatActivity {
         return 0L;
     }
 
-    /** Get an R.id.* safely by name; returns 0 if not found. */
     private int getIdSafely(String idName) {
         try {
             return getResources().getIdentifier(idName, "id", getPackageName());
@@ -231,12 +201,18 @@ public class HistoryActivity extends AppCompatActivity {
         }
     }
 
-    /** Returns the first ID that exists in the nav menu, else 0. */
     private int getExistingMenuId(BottomNavigationView nav, int... ids) {
         if (nav == null || nav.getMenu() == null) return 0;
         for (int id : ids) {
             if (id != 0 && nav.getMenu().findItem(id) != null) return id;
         }
         return 0;
+    }
+
+    // Smooth back press transition
+    @Override
+    public void finish() {
+        super.finish();
+        overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right);
     }
 }
