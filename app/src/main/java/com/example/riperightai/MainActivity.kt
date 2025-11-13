@@ -12,8 +12,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
-import com.google.android.material.button.MaterialButton
 import com.google.android.material.bottomnavigation.BottomNavigationView
+import com.google.android.material.button.MaterialButton
 import android.widget.ImageView
 import java.io.File
 import java.io.IOException
@@ -33,93 +33,86 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // --- UI component setup ---
+        // UI setup
         imageView = findViewById(R.id.imagePlaceholder)
         btnTakePhoto = findViewById(R.id.btnTakePhoto)
         btnUpload = findViewById(R.id.btnUpload)
         val bottomNav = findViewById<BottomNavigationView>(R.id.bottom_navigation)
 
-        // Load default icon initially
         resetUI()
 
-        // --- Permission handling ---
+        // Permission launcher
         permissionLauncher = registerForActivityResult(
             ActivityResultContracts.RequestPermission()
         ) { granted ->
             if (granted) openCamera()
         }
 
-        // --- Camera launcher ---
+        // Camera launcher
         cameraLauncher = registerForActivityResult(
             ActivityResultContracts.StartActivityForResult()
         ) { result ->
             if (result.resultCode == Activity.RESULT_OK && photoUri != null) {
-                val uri = photoUri!!
-                goToLoadingScreen(uri)
+                goToLoadingScreen(photoUri!!)
             }
         }
 
-        // --- Gallery launcher ---
+        // Gallery launcher
         galleryLauncher = registerForActivityResult(
             ActivityResultContracts.StartActivityForResult()
         ) { result ->
             if (result.resultCode == Activity.RESULT_OK) {
-                val selectedUri: Uri? = result.data?.data
-                selectedUri?.let { uri ->
-                    goToLoadingScreen(uri)
-                }
+                result.data?.data?.let { goToLoadingScreen(it) }
             }
         }
 
-        // --- Button listeners ---
+        // Take Photo button
         btnTakePhoto.setOnClickListener {
-            when {
-                ContextCompat.checkSelfPermission(
-                    this,
-                    Manifest.permission.CAMERA
-                ) == PackageManager.PERMISSION_GRANTED -> openCamera()
-                else -> permissionLauncher.launch(Manifest.permission.CAMERA)
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+                == PackageManager.PERMISSION_GRANTED
+            ) {
+                openCamera()
+            } else {
+                permissionLauncher.launch(Manifest.permission.CAMERA)
             }
         }
 
-        btnUpload.setOnClickListener {
-            openGallery()
-        }
+        // Upload from gallery button
+        btnUpload.setOnClickListener { openGallery() }
 
-        // --- Bottom navigation listener ---
+        // --- Bottom navigation ---
         bottomNav.setOnItemSelectedListener { item ->
             when (item.itemId) {
-                R.id.navigation_scan -> {
-                    // Stay in MainActivity (scanner)
-                    true
-                }
+                R.id.navigation_scan -> true // already here
+
                 R.id.navigation_history -> {
-                    // Go to HistoryActivity
                     val intent = Intent(this, HistoryActivity::class.java)
                     startActivity(intent)
-                    overridePendingTransition(android.R.anim.slide_in_left, android.R.anim.slide_out_right)
+                    // Forward transition (Main → History)
+                    overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
+                    // Do *not* call finish() here — to avoid animation crash
                     true
                 }
+
                 else -> false
             }
         }
 
-        // Select scan tab as default
+        // Default tab selection
         bottomNav.selectedItemId = R.id.navigation_scan
     }
 
-    /** Refresh the UI whenever the user comes back from another activity **/
     override fun onResume() {
         super.onResume()
-        resetUI() // Reinitialize icons and layout
+        resetUI()
     }
 
-    /** Reset UI – show only camera icon placeholder **/
+    // Reset UI icon
     private fun resetUI() {
         imageView.setImageResource(R.drawable.ic_camera_green)
     }
 
-    /** Open device camera safely **/
+    // Open camera
     private fun openCamera() {
         try {
             val imageFile = File.createTempFile("mango_photo_", ".jpg", cacheDir)
@@ -131,10 +124,7 @@ class MainActivity : AppCompatActivity() {
 
             val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE).apply {
                 putExtra(MediaStore.EXTRA_OUTPUT, photoUri)
-                addFlags(
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION or
-                            Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-                )
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
             }
 
             cameraLauncher.launch(intent)
@@ -143,26 +133,29 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /** Open gallery picker **/
+    // Open gallery
     private fun openGallery() {
-        val intent = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
-        intent.type = "image/*"
+        val intent = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI).apply {
+            type = "image/*"
+        }
         galleryLauncher.launch(intent)
     }
 
-    /** Navigate to ActivityScanLoading, passing image Uri safely **/
+    // Move to loading screen
     private fun goToLoadingScreen(imageUri: Uri) {
         val intent = Intent(this, ActivityScanLoading::class.java).apply {
             putExtra("image_uri", imageUri.toString())
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
 
-        grantUriPermission(
-            packageName,
-            imageUri,
-            Intent.FLAG_GRANT_READ_URI_PERMISSION
-        )
-
+        grantUriPermission(packageName, imageUri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
         startActivity(intent)
+        overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
+    }
+
+    // Animate when user presses back (e.g., History → Main)
+    override fun onBackPressed() {
+        super.onBackPressed()
+        overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
     }
 }
