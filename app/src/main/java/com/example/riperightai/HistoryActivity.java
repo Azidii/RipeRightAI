@@ -17,6 +17,7 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
+import com.google.android.material.button.MaterialButton;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.ListenerRegistration;
@@ -27,7 +28,6 @@ import com.google.firebase.firestore.WriteBatch;
 import java.text.DateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.Date;
 import java.util.Locale;
 
@@ -40,7 +40,8 @@ public class HistoryActivity extends AppCompatActivity {
     private View emptyStateLayout;
     private ScrollView historyScroll;
     private TextView headerSubtitle;
-    private TextView emptyTitle; // optional
+    private TextView emptyTitle;
+    private MaterialButton clearAllBtn; // 🔥 added reference for CLEAR ALL button
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -49,10 +50,12 @@ public class HistoryActivity extends AppCompatActivity {
 
         db = FirebaseFirestore.getInstance();
 
-        historyContainer  = findViewById(R.id.historyContainer);
-        emptyStateLayout  = findViewById(R.id.emptyStateLayout);
-        historyScroll     = findViewById(R.id.historyScroll);
-        headerSubtitle    = findViewById(R.id.headerSubtitle);
+        // View initialization
+        historyContainer = findViewById(R.id.historyContainer);
+        emptyStateLayout = findViewById(R.id.emptyStateLayout);
+        historyScroll = findViewById(R.id.historyScroll);
+        headerSubtitle = findViewById(R.id.headerSubtitle);
+        clearAllBtn = findViewById(R.id.btnClearAll); // bind the "Clear All" button
 
         // ---- Bottom navigation ----
         BottomNavigationView nav = findViewById(R.id.bottom_navigation);
@@ -66,7 +69,6 @@ public class HistoryActivity extends AppCompatActivity {
 
                     // Reverse transition (History → Main)
                     overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right);
-
                     finish();
                     return true;
                 } else if (id == getIdSafely("menu_history") || id == getIdSafely("navigation_history")) {
@@ -80,7 +82,19 @@ public class HistoryActivity extends AppCompatActivity {
             if (historyId != 0) nav.setSelectedItemId(historyId);
         }
 
-        // Optional: set empty-state title if present
+        // 🔘 Handle "Clear All" button click
+        if (clearAllBtn != null) {
+            clearAllBtn.setOnClickListener(v -> {
+                new AlertDialog.Builder(this)
+                        .setTitle("Delete all history?")
+                        .setMessage("This will permanently remove all scan records for this device.")
+                        .setPositiveButton("Delete All", (dialog, which) -> deleteAll())
+                        .setNegativeButton("Cancel", null)
+                        .show();
+            });
+        }
+
+        // Optional empty-state text override
         if (emptyStateLayout instanceof LinearLayout) {
             LinearLayout ll = (LinearLayout) emptyStateLayout;
             if (ll.getChildCount() > 1 && ll.getChildAt(1) instanceof TextView) {
@@ -89,6 +103,7 @@ public class HistoryActivity extends AppCompatActivity {
             }
         }
 
+        // Begin listening for Firestore changes
         startListening();
     }
 
@@ -118,7 +133,8 @@ public class HistoryActivity extends AppCompatActivity {
         }
 
         ArrayList<DocumentSnapshot> docs = new ArrayList<>(snap.getDocuments());
-        Collections.sort(docs, (a, b) -> Long.compare(safeTimestamp(b.get("timestamp")), safeTimestamp(a.get("timestamp"))));
+        Collections.sort(docs,
+                (a, b) -> Long.compare(safeTimestamp(b.get("timestamp")), safeTimestamp(a.get("timestamp"))));
 
         showEmpty(false);
         if (headerSubtitle != null) headerSubtitle.setText(docs.size() + " scans recorded");
@@ -129,18 +145,18 @@ public class HistoryActivity extends AppCompatActivity {
         for (DocumentSnapshot doc : docs) {
             View row = inflater.inflate(R.layout.item_history, historyContainer, false);
 
-            ImageView img   = row.findViewById(R.id.historyImage);
-            View trash      = row.findViewById(R.id.btnDelete);
-            TextView tvVar  = row.findViewById(R.id.txtVariety);
-            TextView tvRip  = row.findViewById(R.id.txtRipeness);
+            ImageView img = row.findViewById(R.id.historyImage);
+            View trash = row.findViewById(R.id.btnDelete);
+            TextView tvVar = row.findViewById(R.id.txtVariety);
+            TextView tvRip = row.findViewById(R.id.txtRipeness);
             TextView tvConf = row.findViewById(R.id.txtConfidence);
             TextView tvDate = row.findViewById(R.id.txtDate);
 
-            String variety    = safeString(doc.get("variety"));
-            String ripeness   = safeString(doc.get("ripeness"));
+            String variety = safeString(doc.get("variety"));
+            String ripeness = safeString(doc.get("ripeness"));
             String confidence = safeString(doc.get("confidence"));
-            String imageUri   = safeString(doc.get("imageUri"));
-            long tsMillis     = safeTimestamp(doc.get("timestamp"));
+            String imageUri = safeString(doc.get("imageUri"));
+            long tsMillis = safeTimestamp(doc.get("timestamp"));
 
             tvVar.setText(!variety.isEmpty() ? variety : "Unknown");
             tvRip.setText(!ripeness.isEmpty() ? ripeness : "Unknown");
@@ -159,8 +175,7 @@ public class HistoryActivity extends AppCompatActivity {
                             .setPositiveButton("Delete", (d, w) ->
                                     doc.getReference().delete()
                                             .addOnSuccessListener(aVoid -> Toast.makeText(this, "Scan deleted", Toast.LENGTH_SHORT).show())
-                                            .addOnFailureListener(e -> Toast.makeText(this, "Delete failed: " + e.getMessage(), Toast.LENGTH_LONG).show())
-                            )
+                                            .addOnFailureListener(e -> Toast.makeText(this, "Delete failed: " + e.getMessage(), Toast.LENGTH_LONG).show()))
                             .setNegativeButton("Cancel", null)
                             .show();
                 });
@@ -173,6 +188,29 @@ public class HistoryActivity extends AppCompatActivity {
     private void showEmpty(boolean empty) {
         if (emptyStateLayout != null) emptyStateLayout.setVisibility(empty ? View.VISIBLE : View.GONE);
         if (historyScroll != null) historyScroll.setVisibility(empty ? View.GONE : View.VISIBLE);
+    }
+
+    // 🔥 Bulk delete all records (used by Clear All button)
+    private void deleteAll() {
+        String deviceId = Settings.Secure.getString(getContentResolver(), Settings.Secure.ANDROID_ID);
+        db.collection("scan_history")
+                .whereEqualTo("deviceId", deviceId)
+                .get()
+                .addOnSuccessListener(snap -> {
+                    if (snap.isEmpty()) {
+                        Toast.makeText(this, "No history to delete", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    WriteBatch batch = db.batch();
+                    for (DocumentSnapshot d : snap.getDocuments()) {
+                        batch.delete(d.getReference());
+                    }
+                    batch.commit()
+                            .addOnSuccessListener(aVoid -> Toast.makeText(this, "All history deleted", Toast.LENGTH_SHORT).show())
+                            .addOnFailureListener(e -> Toast.makeText(this, "Delete failed: " + e.getMessage(), Toast.LENGTH_LONG).show());
+                })
+                .addOnFailureListener(e ->
+                        Toast.makeText(this, "Error: " + e.getMessage(), Toast.LENGTH_LONG).show());
     }
 
     @Override
