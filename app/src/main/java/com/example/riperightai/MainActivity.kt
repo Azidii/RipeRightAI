@@ -41,14 +41,14 @@ class MainActivity : AppCompatActivity() {
 
         resetUI()
 
-        // Permission launcher
+        // --- Permission launcher ---
         permissionLauncher = registerForActivityResult(
             ActivityResultContracts.RequestPermission()
         ) { granted ->
             if (granted) openCamera()
         }
 
-        // Camera launcher
+        // --- Camera launcher ---
         cameraLauncher = registerForActivityResult(
             ActivityResultContracts.StartActivityForResult()
         ) { result ->
@@ -57,7 +57,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Gallery launcher
+        // --- Gallery launcher ---
         galleryLauncher = registerForActivityResult(
             ActivityResultContracts.StartActivityForResult()
         ) { result ->
@@ -66,7 +66,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Take Photo button
+        // --- Take Photo button ---
         btnTakePhoto.setOnClickListener {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
                 == PackageManager.PERMISSION_GRANTED
@@ -77,7 +77,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Upload from gallery button
+        // --- Upload from gallery button ---
         btnUpload.setOnClickListener { openGallery() }
 
         // --- Bottom navigation ---
@@ -86,11 +86,9 @@ class MainActivity : AppCompatActivity() {
                 R.id.navigation_scan -> true // already here
 
                 R.id.navigation_history -> {
-                    val intent = Intent(this, HistoryActivity::class.java)
-                    startActivity(intent)
-                    // Forward transition (Main → History)
+                    // forward transition (Main → History)
+                    startActivity(Intent(this, HistoryActivity::class.java))
                     overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
-                    // Do *not* call finish() here — to avoid animation crash
                     true
                 }
 
@@ -98,7 +96,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Default tab selection
+        // Default selection to "scan"
         bottomNav.selectedItemId = R.id.navigation_scan
     }
 
@@ -150,10 +148,11 @@ class MainActivity : AppCompatActivity() {
 
         grantUriPermission(packageName, imageUri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
         startActivity(intent)
+        // forward transition (Main → Loading)
         overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
     }
 
-    // Animate when user presses back (e.g., History → Main)
+    // Animate when user presses back (for History → Main transitions)
     override fun onBackPressed() {
         super.onBackPressed()
         overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)

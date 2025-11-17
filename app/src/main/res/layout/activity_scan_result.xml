@@ -1,19 +1,20 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <ScrollView
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:fillViewport="true">
+    android:fillViewport="true"
+    android:background="#FFFFFF"
+    tools:context=".ActivityScanResult">
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="#FFFFFF"
-        tools:context=".ScanResultActivity">
+        android:background="#FFFFFF">
 
-        <!-- App Bar -->
+        <!-- Toolbar -->
         <com.google.android.material.appbar.AppBarLayout
             android:id="@+id/appBarLayout"
             android:layout_width="match_parent"
@@ -30,18 +31,18 @@
                 app:titleTextColor="@android:color/white" />
         </com.google.android.material.appbar.AppBarLayout>
 
-        <!-- Scanned Image -->
+        <!-- Mango Image -->
         <ImageView
             android:id="@+id/scannedImage"
             android:layout_width="0dp"
-            android:layout_height="200dp"
+            android:layout_height="220dp"
             android:scaleType="centerCrop"
             android:src="@drawable/mango_image_placeholder"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toBottomOf="@id/appBarLayout" />
 
-        <!-- Analysis Complete Card -->
+        <!-- Analysis Card -->
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/analysisCard"
             android:layout_width="0dp"
@@ -49,28 +50,27 @@
             android:layout_marginStart="16dp"
             android:layout_marginTop="16dp"
             android:layout_marginEnd="16dp"
+            app:cardBackgroundColor="#FFFFFF"
             app:cardCornerRadius="8dp"
+            app:strokeColor="#E0E0E0"
+            app:strokeWidth="1dp"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/scannedImage"
-            app:strokeColor="#E0E0E0"
-            app:strokeWidth="1dp">
+            app:layout_constraintTop_toBottomOf="@id/scannedImage">
 
             <androidx.constraintlayout.widget.ConstraintLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:padding="16dp"
-                android:background="#FFFFFF">
+                android:padding="16dp">
 
                 <ImageView
                     android:id="@+id/analysisIcon"
                     android:layout_width="24dp"
                     android:layout_height="24dp"
                     android:src="@drawable/ic_check_circle"
-                    app:layout_constraintTop_toTopOf="parent"
-                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:tint="#1C5D1C"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:tint="#1C5D1C" />
+                    app:layout_constraintTop_toTopOf="parent" />
 
                 <TextView
                     android:id="@+id/analysisTitle"
@@ -79,29 +79,28 @@
                     android:layout_marginStart="8dp"
                     android:text="Analysis Complete"
                     android:textColor="@android:color/black"
+                    android:textStyle="bold"
                     app:layout_constraintStart_toEndOf="@id/analysisIcon"
-                    app:layout_constraintTop_toTopOf="@id/analysisIcon"
-                    app:layout_constraintBottom_toBottomOf="@id/analysisIcon" />
+                    app:layout_constraintTop_toTopOf="@id/analysisIcon" />
 
                 <TextView
                     android:id="@+id/confidenceText"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:background="@drawable/confidence_background"
-                    android:paddingStart="8dp"
                     android:paddingTop="2dp"
-                    android:paddingEnd="8dp"
                     android:paddingBottom="2dp"
-                    android:text="93% confidence"
+                    android:paddingStart="8dp"
+                    android:paddingEnd="8dp"
+                    android:text="0% confidence"
                     android:textColor="#1C5D1C"
                     android:textSize="12sp"
                     app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintTop_toTopOf="parent"
-                    app:layout_constraintBottom_toBottomOf="parent" />
+                    app:layout_constraintTop_toTopOf="@id/analysisIcon" />
             </androidx.constraintlayout.widget.ConstraintLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Mango Variety Card -->
+        <!-- Variety Card -->
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/varietyCard"
             android:layout_width="0dp"
@@ -109,6 +108,7 @@
             android:layout_marginStart="16dp"
             android:layout_marginTop="16dp"
             android:layout_marginEnd="16dp"
+            app:cardBackgroundColor="#FFFFFF"
             app:cardCornerRadius="8dp"
             app:strokeColor="#E0E0E0"
             app:strokeWidth="1dp"
@@ -119,8 +119,7 @@
             <androidx.constraintlayout.widget.ConstraintLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:padding="16dp"
-                android:background="#FFFFFF">
+                android:padding="16dp">
 
                 <ImageView
                     android:id="@+id/varietyIcon"
@@ -129,9 +128,9 @@
                     android:background="@drawable/icon_background_green"
                     android:padding="8dp"
                     android:src="@drawable/ic_leaf"
+                    app:tint="#1C5D1C"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toTopOf="parent"
-                    app:tint="#1C5D1C" />
+                    app:layout_constraintTop_toTopOf="parent" />
 
                 <TextView
                     android:id="@+id/varietyTitle"
@@ -140,6 +139,7 @@
                     android:layout_marginStart="16dp"
                     android:text="Mango Variety"
                     android:textColor="@android:color/black"
+                    android:textStyle="bold"
                     app:layout_constraintStart_toEndOf="@id/varietyIcon"
                     app:layout_constraintTop_toTopOf="@id/varietyIcon" />
 
@@ -147,26 +147,16 @@
                     android:id="@+id/varietyName"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Apple Mango"
+                    android:text="Cebu"
                     android:textColor="@android:color/black"
                     android:textSize="16sp"
                     android:textStyle="bold"
                     app:layout_constraintStart_toStartOf="@id/varietyTitle"
                     app:layout_constraintTop_toBottomOf="@id/varietyTitle" />
-
-                <TextView
-                    android:id="@+id/varietySubtitle"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="Classified using AI pattern recognition"
-                    android:textSize="12sp"
-                    app:layout_constraintStart_toStartOf="@id/varietyName"
-                    app:layout_constraintTop_toBottomOf="@id/varietyName" />
             </androidx.constraintlayout.widget.ConstraintLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Ripeness Level Card -->
+        <!-- Ripeness Card -->
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/ripenessCard"
             android:layout_width="0dp"
@@ -174,6 +164,7 @@
             android:layout_marginStart="16dp"
             android:layout_marginTop="16dp"
             android:layout_marginEnd="16dp"
+            app:cardBackgroundColor="#FFFFFF"
             app:cardCornerRadius="8dp"
             app:strokeColor="#E0E0E0"
             app:strokeWidth="1dp"
@@ -184,8 +175,7 @@
             <androidx.constraintlayout.widget.ConstraintLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:padding="16dp"
-                android:background="#FFFFFF">
+                android:padding="16dp">
 
                 <ImageView
                     android:id="@+id/ripenessIcon"
@@ -194,9 +184,9 @@
                     android:background="@drawable/icon_background_yellow"
                     android:padding="8dp"
                     android:src="@drawable/ic_clock"
+                    app:tint="#FFC107"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toTopOf="parent"
-                    app:tint="#FFC107" />
+                    app:layout_constraintTop_toTopOf="parent" />
 
                 <TextView
                     android:id="@+id/ripenessTitle"
@@ -210,59 +200,53 @@
                     app:layout_constraintStart_toEndOf="@id/ripenessIcon"
                     app:layout_constraintTop_toTopOf="@id/ripenessIcon" />
 
+                <View
+                    android:id="@+id/ripenessSeparator"
+                    android:layout_width="0dp"
+                    android:layout_height="2dp"
+                    android:layout_marginTop="12dp"
+                    android:background="#222222"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/ripenessTitle" />
+
                 <TextView
                     android:id="@+id/ripenessState"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Unripe"
-                    android:textColor="#D32F2F"
+                    android:layout_marginTop="8dp"
+                    android:text="Ripe"
+                    android:textColor="#2E7D32"
                     android:textStyle="bold"
-                    app:layout_constraintStart_toStartOf="@id/ripenessTitle"
-                    app:layout_constraintTop_toBottomOf="@id/ripenessTitle" />
-
-                <TextView
-                    android:id="@+id/ripenessProgressText"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:text="Ripeness Progress"
+                    android:textSize="16sp"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/ripenessIcon" />
-
-                <TextView
-                    android:id="@+id/ripenessPercentage"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="-%"
-                    android:textStyle="bold"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintTop_toTopOf="@id/ripenessProgressText"
-                    app:layout_constraintBottom_toBottomOf="@id/ripenessProgressText" />
+                    app:layout_constraintTop_toBottomOf="@id/ripenessSeparator" />
 
                 <ProgressBar
-                    android:id="@+id/ripenessProgressBar"
+                    android:id="@+id/progressRipeness"
                     style="?android:attr/progressBarStyleHorizontal"
                     android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:progress="0"
-                    android:progressDrawable="@drawable/custom_progress_bar"
+                    android:layout_height="22dp"
+                    android:layout_marginTop="8dp"
+                    android:max="100"
+                    android:progress="100"
+                    android:indeterminate="false"
+                    android:progressDrawable="@drawable/progress_ripeness_layer"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/ripenessProgressText" />
+                    app:layout_constraintTop_toBottomOf="@id/ripenessState" />
 
-                <!-- Estimated Ripeness Card -->
+
                 <com.google.android.material.card.MaterialCardView
                     android:id="@+id/estimationCard"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    app:cardBackgroundColor="#FFF9E0"
+                    android:layout_marginTop="12dp"
                     app:cardCornerRadius="8dp"
-                    app:cardElevation="0dp"
+                    app:cardBackgroundColor="#FFF9E0"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/ripenessProgressBar">
+                    app:layout_constraintTop_toBottomOf="@id/progressRipeness">
 
                     <androidx.constraintlayout.widget.ConstraintLayout
                         android:layout_width="match_parent"
@@ -274,48 +258,69 @@
                             android:layout_width="24dp"
                             android:layout_height="24dp"
                             android:src="@drawable/ic_calendar"
+                            app:tint="#D4A017"
                             app:layout_constraintStart_toStartOf="parent"
-                            app:layout_constraintTop_toTopOf="parent"
-                            app:tint="#D4A017" />
+                            app:layout_constraintTop_toTopOf="parent" />
 
                         <TextView
                             android:id="@+id/estimationText"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_marginStart="8dp"
-                            android:text=""
-                            android:textColor="#B58B00"
-                            android:textSize="12sp"
+                            android:text="No estimation since it's Ripe already"
+                            android:textColor="#00695C"
+                            android:textSize="13sp"
                             app:layout_constraintStart_toEndOf="@id/estimationIcon"
                             app:layout_constraintTop_toTopOf="parent"
                             app:layout_constraintEnd_toEndOf="parent" />
                     </androidx.constraintlayout.widget.ConstraintLayout>
                 </com.google.android.material.card.MaterialCardView>
-
-                <!-- 🔹 Added Button: Manual Ripeness Check -->
-                <Button
-                    android:id="@+id/btnAssessRipeness"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:text="Assess Ripeness Manually"
-                    android:visibility="gone"
-                    android:backgroundTint="#2E7D32"
-                    android:textColor="@android:color/white"
-                    app:layout_constraintTop_toBottomOf="@id/estimationCard"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintEnd_toEndOf="parent" />
             </androidx.constraintlayout.widget.ConstraintLayout>
         </com.google.android.material.card.MaterialCardView>
 
+        <!-- Self‑Assessment Notice -->
+        <TextView
+            android:id="@+id/selfAssessmentNotice"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="This variety requires Self‑Assessment"
+            android:textColor="#795548"
+            android:textSize="14sp"
+            android:gravity="center"
+            android:visibility="gone"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/ripenessCard" />
+
+        <!-- Manual Assessment Button -->
+        <Button
+            android:id="@+id/btnAssessRipeness"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="ASSESS RIPENESS"
+            android:textStyle="bold"
+            android:textSize="14sp"
+            android:visibility="gone"
+            android:backgroundTint="#1C5D1C"
+            android:textColor="@android:color/white"
+            app:layout_constraintTop_toBottomOf="@id/selfAssessmentNotice"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <!-- Scan Time Footer -->
         <TextView
             android:id="@+id/scanTime"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
             android:text="Scanned on 10/27/2025 at 6:59:23 PM"
+            android:textColor="@android:color/darker_gray"
+            android:textSize="12sp"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/ripenessCard" />
+            app:layout_constraintTop_toBottomOf="@id/btnAssessRipeness" />
+
     </androidx.constraintlayout.widget.ConstraintLayout>
 </ScrollView>
